@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendário Interativo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Estrutura do calendário para um único dia -->
+        <div id="calendario">
+            <!-- Dia atual -->
+            <div class="dia" id="dia-atual">
+                <h2 id="data-atual">Data Atual</h2>
+                <ul id="tarefas-atual"></ul>
+                <textarea id="entrada-atual" placeholder="Adicionar uma nova tarefa..."></textarea>
+                <button class="btn-adicionar" onclick="adicionarTarefa()">Adicionar</button>
+            </div>
+        </div>
+
+        <!-- Botões de navegação -->
+        <button class="btn-navegacao" id="btn-anterior" onclick="navegar('anterior')">&#10094; Anterior</button>
+        <button class="btn-navegacao" id="btn-proximo" onclick="navegar('proximo')">Próximo &#10095;</button>
+    </div>
+
+    <script>
+        let dataAtual = new Date();
+        let dataAnterior = new Date(dataAtual.getTime());
+        dataAnterior.setDate(dataAnterior.getDate() - 1);
+
+        function chaveData(data) {
+            let dia = ('0' + data.getDate()).slice(-2);
+            let mes = ('0' + (data.getMonth() + 1)).slice(-2);
+            let ano = data.getFullYear();
+            return `${ano}-${mes}-${dia}`;
+        }
+
+        function atualizarInterface() {
+            document.getElementById('data-atual').textContent = formatarData(dataAtual);
+            recuperarTarefas();
+        }
+
+        function formatarData(data) {
+            const opcoes = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return data.toLocaleDateString('pt-BR', opcoes).replace(',', ' -');
+        }
+
+        function adicionarTarefa() {
+            const entradaId = 'entrada-atual';
+            const tarefasId = 'tarefas-atual';
+            const inputValue = document.getElementById(entradaId).value.trim();
+            const dataChave = chaveData(dataAtual);
+
+            if (inputValue) {
+                const ul = document.getElementById(tarefasId);
+                const li = criarElementoTarefa(inputValue, dataChave);
+                ul.appendChild(li);
+                document.getElementById(entradaId).value = '';
+                salvarTarefas();
+            }
+        }
+
+        function criarElementoTarefa(texto, dataChave) {
+            const li = document.createElement('li');
+            const span = document.createElement('span');
+            span.textContent = texto;
+            li.appendChild(span);
+
+            li.addEventListener('click', function () {
+                li.classList.toggle('concluido');
+                salvarTarefas();
+            });
+
+            const btnExcluir = document.createElement('button');
+            btnExcluir.textContent = 'Excluir';
+            btnExcluir.className = 'btn-excluir';
+            btnExcluir.onclick = function (e) {
+                e.stopPropagation();
+                li.remove();
+                salvarTarefas();
+            };
+            li.appendChild(btnExcluir);
+
+            return li;
+        }
+
+        function navegar(direcao) {
+            if (direcao === 'anterior') {
+                dataAtual.setDate(dataAtual.getDate() - 1);
+                dataAnterior.setDate(dataAnterior.getDate() - 1);
+            } else {
+                dataAtual.setDate(dataAtual.getDate() + 1);
+                dataAnterior.setDate(dataAnterior.getDate() + 1);
+            }
+            atualizarInterface();
+        }
+
+        function salvarTarefas() {
+            const dataChave = chaveData(dataAtual);
+            const tarefas = Array.from(document.getElementById('tarefas-atual').children).map(li => ({
+                texto: li.firstChild.textContent,
+                concluida: li.classList.contains('concluido')
+            }));
+            localStorage.setItem('tarefas_' + dataChave, JSON.stringify(tarefas));
+        }
+
+        function recuperarTarefas() {
+            const tarefasAtual = JSON.parse(localStorage.getItem('tarefas_' + chaveData(dataAtual))) || [];
+            const ulAtual = document.getElementById('tarefas-atual');
+            ulAtual.innerHTML = '';
+            tarefasAtual.forEach(tarefa => {
+                const li = criarElementoTarefa(tarefa.texto, chaveData(dataAtual));
+                if (tarefa.concluida) {
+                    li.classList.add('concluido');
+                }
+                ulAtual.appendChild(li);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', atualizarInterface);
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                const activeElement = document.activeElement;
+                if (activeElement.tagName === 'TEXTAREA') {
+                    adicionarTarefa();
+                    event.preventDefault();
+                }
+            } else if (event.key === 'ArrowRight') {
+                navegar('proximo');
+            } else if (event.key === 'ArrowLeft') {
+                navegar('anterior');
+            }
+        });
+
+        let xStart = null;
+        let yStart = null;
+
+        document.addEventListener('touchstart', e => {
+            xStart = e.touches[0].clientX;
+            yStart = e.touches[0].clientY;
+        }, false);
+
+        document.addEventListener('touchmove', e => {
+            if (!xStart || !yStart) return;
+
+            let xEnd = e.touches[0].clientX;
+            let yEnd = e.touches[0].clientY;
+            let xDiff = xStart - xEnd;
+            let yDiff = yStart - yEnd;
+
+            if (Math.abs(xDiff) > Math.abs(yDiff)) {
+                e.preventDefault();
+                if (xDiff > 0) {
+                    /* deslize para esquerda */
+                    navegar('anterior');
+                } else {
+                    /* deslize para direita */
+                    navegar('proximo');
+                }
+                xStart = null;
+                yStart = null;
+            }
+        }, false);
+    </script>
+</body>
+
+</html>
